@@ -99,6 +99,21 @@ streamlit run app.py
 
 ---
 
+## ☁️ 5. 간편한 외부 접속 (Cloudflare Tunnel 추천)
+
+방화벽 설정이 복잡하거나 보안이 걱정된다면 **Cloudflare Tunnel**을 사용하는 것이 가장 간편합니다.
+
+1.  **Cloudflare Tunnel 다운로드**: [https://github.com/cloudflare/cloudflared/releases](https://github.com/cloudflare/cloudflared/releases)에서 Windows용(`cloudflared-windows-amd64.exe`)을 다운로드합니다.
+2.  다운로드한 파일을 `cloudflared.exe`로 이름을 변경하고, 프로젝트 폴더(`bok_policy_analyzer_v2`)에 복사합니다.
+3.  **터널 실행**:
+    새로운 명령 프롬프트(CMD) 창을 열고 다음 명령어를 입력합니다.
+    ```powershell
+    cloudflared.exe tunnel --url http://localhost:8501
+    ```
+4.  실행 결과에 나오는 `https://[랜덤문자].trycloudflare.com` 주소를 복사하여 외부에서 접속하면 됩니다.
+
+---
+
 ### ❓ 자주 묻는 질문 (FAQ)
 
 **Q: "python"을 찾을 수 없다는 에러가 나옵니다.**
@@ -109,3 +124,11 @@ A: `pip install` 중 이 에러가 나면 [Build Tools for Visual Studio](https:
 
 **Q: 실행 중 메모리 부족(MemoryError)으로 꺼집니다.**
 A: 위 1-2 항목의 가상 메모리 설정을 늘려주세요. 또한 실행 중인 다른 프로그램(Chrome 등)을 모두 종료해 주세요.
+
+**Q: 이전 버전(v1)과 동시에 실행하고 싶습니다.**
+A: 기본 포트(8501)가 겹치므로, v2는 다른 포트로 실행해야 합니다.
+```powershell
+# 8502 포트로 실행
+streamlit run app.py --server.port 8502
+```
+⚠️ **주의:** 2GB 램에서 두 개의 Python 앱을 동시에 돌리는 것은 매우 위험합니다. 반드시 가상 메모리를 8GB 이상으로 설정하고, 불필요한 경우 하나는 중지하는 것을 권장합니다.
