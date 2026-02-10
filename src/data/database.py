@@ -163,6 +163,23 @@ class DatabaseManager:
         )
         """)
 
+
+
+        # 8. 경제 전망 데이터 테이블
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS economic_forecasts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            release_date DATE NOT NULL,
+            target_year INTEGER NOT NULL,
+            gdp_growth REAL,
+            cpi_inflation REAL,
+            source_url TEXT,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(release_date, target_year)
+        )
+        """)
+
         conn.commit()
         conn.close()
 
@@ -540,6 +557,106 @@ class DatabaseManager:
             params['gamma'] = 0.2
 
         return params
+
+    def save_forecast(
+        self,
+        release_date: str,
+        target_year: int,
+        gdp_growth: Optional[float] = None,
+        cpi_inflation: Optional[float] = None,
+        source_url: str = "",
+        description: str = ""
+    ):
+        """
+        경제 전망 데이터 저장
+        
+        Args:
+            release_date: 발표일 (YYYY-MM-DD)
+            target_year: 전망 대상 연도
+            gdp_growth: GDP 성장률 전망치 (%)
+            cpi_inflation: 소비자물가 상승률 전망치 (%)
+            source_url: 출처 URL
+            description: 설명 (예: '2025년 11월 경제전망')
+        """
+        conn = self._get_connection()
+        
+        try:
+            conn.execute("""
+            INSERT OR REPLACE INTO economic_forecasts 
+            (release_date, target_year, gdp_growth, cpi_inflation, source_url, description)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, (release_date, target_year, gdp_growth, cpi_inflation, source_url, description))
+            
+            conn.commit()
+            logger.info(f"경제 전망 저장 완료: {release_date} (Year: {target_year})")
+        except Exception as e:
+            logger.error(f"경제 전망 저장 실패: {e}")
+        finally:
+            conn.close()
+
+    def get_latest_forecast(self, target_date: Optional[str] = None) -> Optional[Dict]:
+        """
+        특정 시점 기준 가장 최신 경제 전망 조회
+        
+        Args:
+            target_date: 조회 기준일 (YYYY-MM-DD). None이면 현재 기준.
+                         이 날짜 이전에 발표된 가장 최신 전망을 찾음.
+        
+        Returns:
+            전망 데이터 딕셔너리 or None
+        """
+        conn = self._get_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        if target_date is None:
+            target_date = datetime.now().strftime('%Y-%m-%d')
+            
+        # target_date 이전에 발표된 가장 최신 발표일 찾기
+        cursor.execute("""
+        SELECT release_date 
+        FROM economic_forecasts 
+        WHERE release_date <= ? 
+        ORDER BY release_date DESC 
+        LIMIT 1
+        """, (target_date,))
+        
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return None
+            
+        latest_release_date = row['release_date']
+        
+        # 해당 발표일의 모든 전망 데이터 조회
+        cursor.execute("""
+        SELECT * 
+        FROM economic_forecasts 
+        WHERE release_date = ?
+        ORDER BY target_year ASC
+        """, (latest_release_date,))
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        if not rows:
+            return None
+            
+        # 결과를 딕셔너리로 변환 (연도별 데이터 포함)
+        result = {
+            'release_date': latest_release_date,
+            'source_url': rows[0]['source_url'],
+            'description': rows[0]['description'],
+            'forecasts': {}  # {year: {'gdp': val, 'cpi': val}}
+        }
+        
+        for r in rows:
+            result['forecasts'][r['target_year']] = {
+                'gdp': r['gdp_growth'],
+                'cpi': r['cpi_inflation']
+            }
+            
+        return result
 
     def close(self):
         """데이터베이스 연결 종료"""

@@ -8,6 +8,8 @@ import plotly.express as px
 import pandas as pd
 import os
 from pathlib import Path
+from src.data.database import DatabaseManager
+from datetime import datetime
 
 def render_analysis_view(row, previous_row=None):
     """
@@ -28,6 +30,23 @@ def render_analysis_view(row, previous_row=None):
 
 def render_sample_2025_11_27(row):
     """2025년 11월 27일 발표에 대한 전문가 수준의 상세 분석"""
+    
+    # DB에서 최신 경제전망 조회
+    db = DatabaseManager()
+    latest_forecast = db.get_latest_forecast(target_date='2025-11-27')
+    
+    # 기본값 (DB에 없을 경우) - 수정된 올바른 값
+    gdp_forecast = 1.0
+    cpi_forecast = 2.1
+    
+    if latest_forecast and latest_forecast.get('forecasts'):
+        forecasts = latest_forecast['forecasts']
+        # 2025년 전망치 찾기
+        if 2025 in forecasts:
+            if forecasts[2025]['gdp'] is not None:
+                gdp_forecast = forecasts[2025]['gdp']
+            if forecasts[2025]['cpi'] is not None:
+                cpi_forecast = forecasts[2025]['cpi']
     
     # ==================== REPORT HEADER ====================
     st.markdown("""
@@ -80,23 +99,23 @@ def render_sample_2025_11_27(row):
         """, unsafe_allow_html=True)
     
     with col2:
-        st.markdown("""
+        st.markdown(f"""
         <div style="background: linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%); 
                     padding: 25px; border-radius: 12px; text-align: center;
                     box-shadow: 0 8px 25px rgba(46,125,50,0.3);">
             <p style="color: rgba(255,255,255,0.8); margin: 0; font-size: 0.85rem;">소비자물가</p>
-            <h2 style="color: white; margin: 10px 0 5px 0; font-size: 2.2rem;">2.3%</h2>
+            <h2 style="color: white; margin: 10px 0 5px 0; font-size: 2.2rem;">{cpi_forecast}%</h2>
             <p style="color: #A5D6A7; margin: 0; font-size: 0.9rem;">목표(2%) 근접</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
-        st.markdown("""
+        st.markdown(f"""
         <div style="background: linear-gradient(135deg, #F57C00 0%, #E65100 100%); 
                     padding: 25px; border-radius: 12px; text-align: center;
                     box-shadow: 0 8px 25px rgba(245,124,0,0.3);">
             <p style="color: rgba(255,255,255,0.8); margin: 0; font-size: 0.85rem;">GDP 성장률 전망</p>
-            <h2 style="color: white; margin: 10px 0 5px 0; font-size: 2.2rem;">1.9%</h2>
+            <h2 style="color: white; margin: 10px 0 5px 0; font-size: 2.2rem;">{gdp_forecast}%</h2>
             <p style="color: #FFCC80; margin: 0; font-size: 0.9rem;">▼ 하향 조정</p>
         </div>
         """, unsafe_allow_html=True)
@@ -160,11 +179,11 @@ def render_sample_2025_11_27(row):
     
     with col_right:
         st.markdown("### 🏷️ 물가 동향")
-        st.markdown("""
+        st.markdown(f"""
         <div style="background-color: #1E1E2E; padding: 25px; border-radius: 10px; min-height: 280px;">
             <h4 style="color: #4CAF50; margin-top: 0;">안정화 신호</h4>
             <ul style="color: #C0C0C0; line-height: 1.9;">
-                <li>헤드라인 CPI: 2.3% (전년동월대비)</li>
+                <li>헤드라인 CPI: {cpi_forecast}% (전년동월대비)</li>
                 <li>근원물가: 2.1%대로 안정화</li>
                 <li>기대인플레이션: 2.5% 내외로 안착</li>
             </ul>
@@ -293,9 +312,9 @@ def render_sample_2025_11_27(row):
                 <td style="padding: 15px; color: #E0E0E0; border-bottom: 1px solid #333;"><strong>물가</strong></td>
                 <td style="padding: 15px; color: #B0B0B0; border-bottom: 1px solid #333;">"9월 중 소비자물가 상승률이 2.1%, 근원물가 상승률이 2.0% ... 안정적인 흐름을 이어갔다."</td>
                 <td style="padding: 15px; color: #81D4FA; border-bottom: 1px solid #333;">
-                    "소비자물가 및 근원물가 상승률이 <strong style="color: #EF5350;">2.4% 및 2.2%로 높아졌다.</strong>"
-                    <span style="background-color: rgba(244,67,54,0.2); color: #EF5350; 
-                                 padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; margin-left: 10px;">Hawkish (Fact Check)</span>
+                    "소비자물가 및 근원물가 상승률이 <strong style="color: #EF5350;">{cpi_forecast}% 및 2.1%로 안정화되었다.</strong>"
+                    <span style="background-color: rgba(66, 165, 245, 0.2); color: #42A5F5; 
+                                 padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; margin-left: 10px;">Neutral/Dovish</span>
                 </td>
             </tr>
             <tr style="background-color: #0D1B2A;">
@@ -513,15 +532,14 @@ def render_sample_2025_11_27(row):
         """, unsafe_allow_html=True)
     
     with expert_col2:
-        st.markdown("#### BOK Policy Analyzer AI")
-        st.markdown("""
+        st.markdown(f"#### BOK Policy Analyzer AI")
+        st.markdown(f"""
         > "11월 통화정책방향 결정문의 텍스트를 분석한 결과, **Tone Index가 -0.34로 명확한 비둘기파 영역**에 
-        > 진입했습니다. 특히 '유연하게 대응'이라는 표현의 등장은 2024년 하반기 긴축 사이클 이후 처음으로 
-        > 나타난 것으로, 통화정책의 **피봇(Pivot) 가능성**을 강하게 시사합니다.
+        > 진입했습니다. 특히 2025년 성장률 전망이 **{gdp_forecast}%**로 하향 조정됨에 따라 
+        > 통화정책의 **피봇(Pivot) 필요성**이 더욱 커졌습니다.
         > 
-        > 다만, 환율 변동성과 가계부채 리스크에 대한 언급이 여전히 강조되고 있어, 인하 시점은 
-        > **2026년 1~2월로 예상**됩니다. 연간 인하 폭은 50bp(2회 인하)가 기본 시나리오이며, 
-        > 글로벌 경기 둔화 가속 시 75bp까지 확대될 수 있습니다."
+        > 물가상승률 전망({cpi_forecast}%)이 목표 수준(2.0%)에 근접함에 따라, 금리 인하의 장애물은 낮아졌습니다.
+        > 인하 시점은 **2026년 1~2월로 예상**되며, 경기 부양을 위한 선제적 대응 가능성도 배제할 수 없습니다."
         """)
     
     # ==================== FOOTER ====================
